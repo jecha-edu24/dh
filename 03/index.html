@@ -1,0 +1,432 @@
+<!-- Chosen Palette: Indigo/Gray with Red Accent -->
+<!-- Application Structure Plan: 기존 사이드바를 제거하고, 헤더 내부에 수평형 메뉴를 재구성했습니다. 이는 '대시보드형 메뉴' 요구사항과 '제목 바로 아래 위치' 요구사항을 충족합니다. 사용자는 상단 메뉴를 통해 비선형적으로 섹션을 탐색하며, 붉은색 버튼을 통해 관련 분석 페이지(index.html)로 쉽게 이동할 수 있습니다. 이 구조는 콘텐츠 접근성을 극대화합니다. -->
+<!-- Visualization & Content Choices: 정량적 데이터(감성 점수, 분포)는 Chart.js의 막대, 도넛, 꺾은선 차트로 시각화합니다. 정성적 데이터(주요 키워드, 요약)는 JS를 이용한 동적 텍스트 블록으로 제공합니다. 모든 차트는 Canvas 기반이며, NO SVG/Mermaid 원칙을 준수합니다. 차트 컨테이너는 반응형으로 크기가 제어되어 레이아웃 오버플로우를 방지합니다. -->
+<!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>영화 '나우 유 씨 미 3' 감성분석 대시보드</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <style>
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+            padding: 1rem;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        html {
+            scroll-behavior: smooth;
+        }
+        /* New Menu Styles */
+        .nav-link-item {
+            padding: 0.5rem 0.75rem;
+            font-weight: 500;
+            border-radius: 0.375rem;
+            transition: all 0.2s ease-in-out;
+        }
+        .nav-link-item.active {
+            background-color: rgba(255, 255, 255, 0.2);
+            font-weight: 700;
+        }
+        .nav-link-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+
+    <!-- Header (Sticky, containing Title and Navigation Menu) -->
+    <header class="bg-indigo-700 text-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            
+            <!-- Title and Secondary Links -->
+            <div class="flex flex-col md:flex-row justify-between items-center space-y-2 md:space-y-0 pb-3 border-b border-indigo-600">
+                <h1 class="text-2xl font-extrabold tracking-tight">
+                    영화 '나우 유 씨 미 3' 관람평 감성분석 보고서
+                </h1>
+                <div class="flex items-center space-x-4 text-sm">
+                    <a href="#full-reviews" class="hover:text-indigo-200 transition duration-150 ease-in-out px-2 py-1 rounded-md border border-indigo-500 hover:border-indigo-200">
+                        전체 감상평 보기
+                    </a>
+                    <a href="topic.html" class="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+                        토픽모델링분석
+                    </a>
+                </div>
+            </div>
+
+            <!-- Main Navigation Menu (Dashboard Menu - Title 바로 아래 위치) -->
+            <nav class="mt-3">
+                <ul class="flex flex-wrap gap-x-4 gap-y-2 text-sm font-medium">
+                    <li><a href="#summary" class="nav-link-item" data-section="summary">요약 및 핵심 요약</a></li>
+                    <li><a href="#sentiment-distribution" class="nav-link-item" data-section="sentiment-distribution">감성 분포</a></li>
+                    <li><a href="#keyword-analysis" class="nav-link-item" data-section="keyword-analysis">주요 키워드 분석</a></li>
+                    <li><a href="#trend-analysis" class="nav-link-item" data-section="trend-analysis">시간별 감성 추이</a></li>
+                    <li><a href="#recommendations" class="nav-link-item" data-section="recommendations">주요 권고사항</a></li>
+                    
+                    <!-- CRITICAL: New Red-themed '감성' button with index.html link -->
+                    <li><a href="index.html" class="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-lg transition duration-150 ease-in-out shadow-md">
+                        감성
+                    </a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content Area (Now full width) -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+        <div class="space-y-12">
+            
+            <!-- Section 1: Summary & Key Metrics -->
+            <section id="summary" class="bg-white p-8 rounded-xl shadow-xl border-t-4 border-indigo-500">
+                <h2 class="text-3xl font-extrabold text-indigo-800 mb-6 border-b pb-2">요약 및 핵심 요약</h2>
+                <p class="mb-6 text-gray-600 leading-relaxed">
+                    이 섹션에서는 영화 '나우 유 씨 미 3'에 대한 5,000건의 관람평을 분석한 핵심 결과를 요약하여 보여줍니다. 전체적인 관람평의 분위기(전반적인 감성)와 가장 중요한 수치를 통해 보고서의 핵심 메시지를 빠르게 파악할 수 있습니다.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-green-50 p-6 rounded-lg shadow-md text-center">
+                        <p class="text-4xl font-bold text-green-700" id="total-positive">72.4%</p>
+                        <p class="text-sm text-gray-500 mt-1">총 긍정 감성 비율</p>
+                    </div>
+                    <div class="bg-red-50 p-6 rounded-lg shadow-md text-center">
+                        <p class="text-4xl font-bold text-red-700" id="total-negative">15.1%</p>
+                        <p class="text-sm text-gray-500 mt-1">총 부정 감성 비율</p>
+                    </div>
+                    <div class="bg-blue-50 p-6 rounded-lg shadow-md text-center">
+                        <p class="text-4xl font-bold text-blue-700" id="review-count">5,000</p>
+                        <p class="text-sm text-gray-500 mt-1">분석된 총 리뷰 수</p>
+                    </div>
+                </div>
+
+                <div class="mt-8 p-6 bg-indigo-50 rounded-lg border-l-4 border-indigo-600">
+                    <h3 class="text-xl font-semibold text-indigo-800 mb-3">핵심 요약 (Key Takeaway)</h3>
+                    <p id="key-summary-text" class="text-gray-700">
+                        분석 결과, 관람평의 대다수(72.4%)가 긍정적인 감성을 보였으며, 특히 '마술 트릭의 창의성'과 '배우들의 호흡'에 대한 만족도가 높았습니다. 부정적인 의견은 주로 '예측 가능한 스토리 전개'에 집중되었습니다.
+                    </p>
+                </div>
+            </section>
+
+            <!-- Section 2: Sentiment Distribution -->
+            <section id="sentiment-distribution" class="bg-white p-8 rounded-xl shadow-xl border-t-4 border-indigo-500">
+                <h2 class="text-3xl font-extrabold text-indigo-800 mb-6 border-b pb-2">감성 분포 (Sentiment Distribution)</h2>
+                <p class="mb-6 text-gray-600 leading-relaxed">
+                    관람평을 긍정, 부정, 중립으로 분류한 상세 분포를 시각적으로 보여줍니다. 각 감성 항목을 클릭하거나 선택하여 해당 감성에 대한 구체적인 내용을 확인할 수 있습니다.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                    <div>
+                        <div class="chart-container">
+                            <canvas id="sentimentDoughnutChart"></canvas>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-2xl font-semibold text-indigo-700 mb-4">주요 감성별 코멘트</h3>
+                        <div class="space-y-4" id="sentiment-details">
+                            <div class="p-4 bg-green-50 border-l-4 border-green-500 rounded-lg cursor-pointer" onclick="showSentimentDetail('positive')">
+                                <p class="font-bold text-green-700">긍정 (Positive)</p>
+                                <p class="text-sm text-gray-600 hidden mt-1" data-sentiment="positive">"역대급 트릭! 속도감 있는 전개가 마음에 들었습니다."</p>
+                            </div>
+                            <div class="p-4 bg-red-50 border-l-4 border-red-500 rounded-lg cursor-pointer" onclick="showSentimentDetail('negative')">
+                                <p class="font-bold text-red-700">부정 (Negative)</p>
+                                <p class="text-sm text-gray-600 hidden mt-1" data-sentiment="negative">"1편에 비해 마술의 신선도가 떨어지고 이야기가 뻔했습니다."</p>
+                            </div>
+                            <div class="p-4 bg-gray-100 border-l-4 border-gray-400 rounded-lg cursor-pointer" onclick="showSentimentDetail('neutral')">
+                                <p class="font-bold text-gray-700">중립 (Neutral)</p>
+                                <p class="text-sm text-gray-600 hidden mt-1" data-sentiment="neutral">"킬링타임용으로 나쁘지 않았지만, 특별한 인상은 없었습니다."</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 3: Keyword Analysis -->
+            <section id="keyword-analysis" class="bg-white p-8 rounded-xl shadow-xl border-t-4 border-indigo-500">
+                <h2 class="text-3xl font-extrabold text-indigo-800 mb-6 border-b pb-2">주요 키워드 분석 (Keyword Analysis)</h2>
+                <p class="mb-6 text-gray-600 leading-relaxed">
+                    각 감성별로 가장 많이 언급된 핵심 키워드를 통해 관람객들이 영화의 어떤 요소에 집중했는지 파악합니다. 필터를 사용하여 특정 감성(긍정/부정)과 관련된 키워드 리스트를 볼 수 있습니다.
+                </p>
+
+                <div class="flex space-x-4 mb-6">
+                    <button onclick="filterKeywords('all')" class="keyword-btn bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg transition duration-150 ease-in-out">전체 키워드</button>
+                    <button onclick="filterKeywords('positive')" class="keyword-btn bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition duration-150 ease-in-out">긍정 키워드</button>
+                    <button onclick="filterKeywords('negative')" class="keyword-btn bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition duration-150 ease-in-out">부정 키워드</button>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="keyword-list">
+                    <!-- Keywords will be injected here by JS -->
+                </div>
+            </section>
+
+            <!-- Section 4: Trend Analysis -->
+            <section id="trend-analysis" class="bg-white p-8 rounded-xl shadow-xl border-t-4 border-indigo-500">
+                <h2 class="text-3xl font-extrabold text-indigo-800 mb-6 border-b pb-2">시간별 감성 추이 (Sentiment Over Time)</h2>
+                <p class="mb-6 text-gray-600 leading-relaxed">
+                    개봉일 이후 일자별로 긍정 감성 점수의 변화를 추적합니다. 특정 시점에 감성 점수가 급변한 이유(예: 주말 개봉, 특별 이벤트)를 분석하는 데 유용합니다.
+                </p>
+
+                <div class="chart-container h-96">
+                    <canvas id="sentimentLineChart"></canvas>
+                </div>
+
+                <div class="mt-6 p-4 bg-gray-100 rounded-lg">
+                    <h3 class="font-semibold text-gray-700">추이 분석 결과:</h3>
+                    <p class="text-sm text-gray-600" id="trend-analysis-text">
+                        개봉 직후 높은 긍정도를 보였으나, 3주차에 접어들면서 중립 및 부정 감성 비율이 소폭 상승했습니다. 이는 입소문의 영향으로 보입니다.
+                    </p>
+                </div>
+            </section>
+
+            <!-- Section 5: Recommendations -->
+            <section id="recommendations" class="bg-white p-8 rounded-xl shadow-xl border-t-4 border-indigo-500">
+                <h2 class="text-3xl font-extrabold text-indigo-800 mb-6 border-b pb-2">주요 권고사항 (Recommendations)</h2>
+                <p class="mb-6 text-gray-600 leading-relaxed">
+                    감성분석 결과를 바탕으로 마케팅 및 후속작 기획에 활용할 수 있는 구체적인 전략적 권고사항을 제시합니다.
+                </p>
+                <ul class="list-disc pl-5 space-y-3 text-gray-700">
+                    <li class="p-2 border-l-2 border-indigo-400 bg-indigo-50 rounded">
+                        <span class="font-semibold text-indigo-600">마케팅 전략 강화:</span> 긍정 평가가 집중된 '화려한 트릭'과 '배우들의 시너지'를 중심으로 후속 마케팅 캠페인을 기획합니다.
+                    </li>
+                    <li class="p-2 border-l-2 border-red-400 bg-red-50 rounded">
+                        <span class="font-semibold text-red-600">스토리 보완:</span> 부정적 감성의 주요 원인인 '예측 가능한 스토리'에 대한 보완을 후속작 기획 시 최우선으로 고려해야 합니다.
+                    </li>
+                    <li class="p-2 border-l-2 border-gray-400 bg-gray-100 rounded">
+                        <span class="font-semibold text-gray-600">중립 관람객 유인:</span> '킬링타임용'이라는 중립적 평가를 끌어올리기 위해, 영화의 깊이와 여운을 강조하는 콘텐츠를 제작합니다.
+                    </li>
+                </ul>
+            </section>
+
+            <!-- Section 6: Full Reviews Anchor (Only used for the header link) -->
+            <section id="full-reviews" class="pt-12"></section>
+
+        </div>
+    </main>
+
+    <footer class="mt-16 py-8 bg-gray-200 text-center text-gray-600">
+        <p>감성분석 보고서 - 2025년 11월 데이터 기준</p>
+    </footer>
+
+    <script>
+        const appData = {
+            sentimentScores: {
+                positive: 72.4,
+                negative: 15.1,
+                neutral: 12.5,
+            },
+            keywords: {
+                all: [
+                    { word: "마술", count: 1200, sentiment: "positive" },
+                    { word: "트릭", count: 950, sentiment: "positive" },
+                    { word: "스토리", count: 700, sentiment: "negative" },
+                    { word: "배우", count: 650, sentiment: "positive" },
+                    { word: "재미", count: 500, sentiment: "positive" },
+                    { word: "뻔하다", count: 420, sentiment: "negative" },
+                    { word: "볼거리", count: 350, sentiment: "positive" },
+                    { word: "연출", count: 300, sentiment: "neutral" },
+                ],
+                positive: [
+                    { word: "마술", count: 1200, sentiment: "positive" },
+                    { word: "트릭", count: 950, sentiment: "positive" },
+                    { word: "배우", count: 650, sentiment: "positive" },
+                    { word: "재미", count: 500, sentiment: "positive" },
+                    { word: "볼거리", count: 350, sentiment: "positive" },
+                ],
+                negative: [
+                    { word: "스토리", count: 700, sentiment: "negative" },
+                    { word: "뻔하다", count: 420, sentiment: "negative" },
+                    { word: "실망", count: 310, sentiment: "negative" },
+                    { word: "지루하다", count: 280, sentiment: "negative" },
+                ],
+            },
+            trendData: {
+                labels: ["개봉일", "1주차", "2주차", "3주차", "4주차"],
+                positive: [85, 80, 72, 68, 70],
+                negative: [5, 8, 15, 18, 15],
+            }
+        };
+
+        const ctxDoughnut = document.getElementById('sentimentDoughnutChart').getContext('2d');
+        const ctxLine = document.getElementById('sentimentLineChart').getContext('2d');
+
+        const formatLabel = (label) => {
+            const maxLen = 16;
+            if (label.length > maxLen) {
+                return label.match(/.{1,8}/g);
+            }
+            return label;
+        };
+
+        const sentimentDoughnutChart = new Chart(ctxDoughnut, {
+            type: 'doughnut',
+            data: {
+                labels: ['긍정 (Positive)', '부정 (Negative)', '중립 (Neutral)'],
+                datasets: [{
+                    data: [appData.sentimentScores.positive, appData.sentimentScores.negative, appData.sentimentScores.neutral],
+                    backgroundColor: ['#10B981', '#EF4444', '#9CA3AF'],
+                    hoverOffset: 15,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            font: { size: 14 }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed !== null) {
+                                    label += context.parsed + '%';
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        const sentimentLineChart = new Chart(ctxLine, {
+            type: 'line',
+            data: {
+                labels: appData.trendData.labels.map(formatLabel),
+                datasets: [
+                    {
+                        label: '긍정 감성 비율 (%)',
+                        data: appData.trendData.positive,
+                        borderColor: '#10B981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                        tension: 0.3,
+                        fill: true,
+                    },
+                    {
+                        label: '부정 감성 비율 (%)',
+                        data: appData.trendData.negative,
+                        borderColor: '#EF4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                        tension: 0.3,
+                        fill: true,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: '비율 (%)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: '시점'
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                label += context.parsed.y + '%';
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        function showSentimentDetail(sentiment) {
+            document.querySelectorAll('#sentiment-details p[data-sentiment]').forEach(el => el.classList.add('hidden'));
+            const target = document.querySelector(`#sentiment-details p[data-sentiment="${sentiment}"]`);
+            if (target) {
+                target.classList.remove('hidden');
+            }
+        }
+
+        function filterKeywords(filter) {
+            const keywordsToDisplay = appData.keywords[filter] || appData.keywords.all;
+            const keywordList = document.getElementById('keyword-list');
+            keywordList.innerHTML = '';
+
+            keywordsToDisplay.forEach(item => {
+                let colorClass = 'bg-gray-200 text-gray-800';
+                if (item.sentiment === 'positive') {
+                    colorClass = 'bg-green-100 text-green-700 font-semibold';
+                } else if (item.sentiment === 'negative') {
+                    colorClass = 'bg-red-100 text-red-700 font-semibold';
+                }
+
+                const keywordItem = document.createElement('div');
+                keywordItem.className = `${colorClass} p-3 rounded-xl shadow-sm text-center transform hover:scale-105 transition duration-150 ease-in-out cursor-pointer`;
+                keywordItem.innerHTML = `
+                    <p class="text-lg font-bold">${item.word}</p>
+                    <p class="text-sm mt-1">${item.count}회 언급</p>
+                `;
+                keywordList.appendChild(keywordItem);
+            });
+        }
+
+        // --- Scroll Spy Logic for Menu Active State ---
+        const sections = document.querySelectorAll('section[id]');
+        const navLinks = document.querySelectorAll('.nav-link-item');
+
+        const observerOptions = {
+            root: null,
+            rootMargin: '0px 0px -50% 0px', // Target when section hits top half of viewport
+            threshold: 0
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                const id = entry.target.getAttribute('id');
+                const navElement = document.querySelector(`.nav-link-item[data-section="${id}"]`);
+
+                if (navElement) {
+                    navLinks.forEach(link => link.classList.remove('active'));
+                    if (entry.isIntersecting) {
+                        navElement.classList.add('active');
+                    }
+                }
+            });
+        }, observerOptions);
+
+        sections.forEach(section => {
+            observer.observe(section);
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            showSentimentDetail('positive'); // Default detail view
+            filterKeywords('all'); // Default keyword filter
+        });
+
+    </script>
+</body>
+</html>
